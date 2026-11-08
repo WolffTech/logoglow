@@ -24,4 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         menuBar = MenuBarController()
     }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        menuBar?.applicationWillTerminate()
+    }
 }
