@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 Nick Wolff <nick@wolff.tech>
+# SPDX-License-Identifier: GPL-2.0-only
+
+# Planning scratch space — never committed
+temp/
+
+# macOS
+.DS_Store
+
+# Xcode / SwiftPM
+DerivedData/
+build/
+.build/
+xcuserdata/
+*.xcuserstate
+.swiftpm/xcode/
+
+# Generated output
+/dist/
+
+# AI tooling — never committed
+CLAUDE.md
+AGENTS.md
+.claude/
+.cursor/
+.cursorrules
+.codex/
+.gemini/
+.windsurf/
+.windsurfrules
+.aider*
+.mcp.json
+.github/copilot-instructions.md
