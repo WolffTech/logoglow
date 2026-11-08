@@ -12,7 +12,18 @@ let package = Package(
         // Menu bar app. Scripts/make-app.sh wraps this executable in "Logo Glow.app".
         .executableTarget(
             name: "LogoGlow",
+            dependencies: ["LogoGlowCore"],
             path: "Sources/LogoGlow"
+        ),
+        // CoreBrightness access and control handoff, kept free of UI so it can be tested.
+        .target(
+            name: "LogoGlowCore",
+            path: "Sources/LogoGlowCore"
+        ),
+        .testTarget(
+            name: "LogoGlowCoreTests",
+            dependencies: ["LogoGlowCore"],
+            path: "Tests/LogoGlowCoreTests"
         ),
     ]
 )
