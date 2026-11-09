@@ -25,6 +25,11 @@ it off. Logo Glow is a menu bar app that lets you decide how the logo glows.
 - Hands control of the logo back and forth with one toggle: off leaves it to
   macOS, on lets Logo Glow drive it
 - Turns the logo off, or sets its brightness independently of the display
+- Optionally lifts the ambient-light limits macOS puts on logo brightness, so
+  the full range from off to 1,000 nits is available (needs an admin password)
+- Hands the logo back to macOS when you quit, and takes it again at the next launch
+
+Changes apply within about a second, without touching your screen brightness.
 
 ## Requirements
 
