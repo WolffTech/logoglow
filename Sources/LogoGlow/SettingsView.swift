@@ -31,7 +31,12 @@ struct SettingsView: View {
         .scrollDisabled(true)
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
-        .onAppear { model.refresh() }
+        .task {
+            while !Task.isCancelled {
+                model.refresh()
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
     }
 
     @ViewBuilder
