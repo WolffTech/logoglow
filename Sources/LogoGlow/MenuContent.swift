@@ -70,17 +70,18 @@ struct MenuContent: View {
     }
 
     private var brightnessSlider: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Image(systemName: "sun.min")
                 .accessibilityLabel("Dimmer")
             Slider(value: $draftBrightness, in: 0...1) { editing in
                 if !editing { model.setBrightness(draftBrightness) }
             }
-            .controlSize(.small)
+            .controlSize(.large)
             .accessibilityLabel("Logo brightness")
             Image(systemName: "sun.max")
                 .accessibilityLabel("Brighter")
         }
+        .font(.title3)
         .foregroundStyle(.secondary)
         .disabled(!model.canAdjustLight)
     }
