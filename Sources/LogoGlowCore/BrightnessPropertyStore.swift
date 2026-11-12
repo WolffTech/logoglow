@@ -7,6 +7,7 @@ import Foundation
 public protocol BrightnessPropertyStore {
     func value(forKey key: String) -> Any?
     func setValue(_ value: Any, forKey key: String) -> Bool
+    func setValueOnKeyboards(_ value: Any, forKey key: String)
 }
 
 /// Talks to corebrightnessd through the private `BrightnessSystemClient` class in
@@ -14,9 +15,12 @@ public protocol BrightnessPropertyStore {
 public struct CoreBrightnessStore: BrightnessPropertyStore {
     private typealias CopyProperty = @convention(c) (NSObject, Selector, NSString) -> Unmanaged<AnyObject>?
     private typealias SetProperty = @convention(c) (NSObject, Selector, AnyObject, NSString) -> Bool
+    private typealias SetKeyboardProperty = @convention(c) (NSObject, Selector, AnyObject, NSString, UInt64) -> Bool
 
     private static let copySelector = NSSelectorFromString("copyPropertyForKey:")
     private static let setSelector = NSSelectorFromString("setProperty:forKey:")
+    private static let setKeyboardSelector = NSSelectorFromString("setProperty:withKey:keyboardID:")
+    private static let keyboardIDsSelector = NSSelectorFromString("copyKeyboardBacklightIDs")
 
     private let clientClass: NSObject.Type
 
@@ -32,7 +36,7 @@ public struct CoreBrightnessStore: BrightnessPropertyStore {
     }
 
     // A fresh client per call keeps the store valid across corebrightnessd restarts, which
-    // the full-range unlock causes. Calls are rare (menu actions), so the cost is negligible.
+    // the full-range unlock causes. A call costs about 0.15 ms, which is negligible even for effects.
     private func makeClient() -> NSObject {
         clientClass.init()
     }
@@ -50,5 +54,19 @@ public struct CoreBrightnessStore: BrightnessPropertyStore {
         let imp = client.method(for: Self.setSelector)
         let set = unsafeBitCast(imp, to: SetProperty.self)
         return set(client, Self.setSelector, value as AnyObject, key as NSString)
+    }
+
+    public func setValueOnKeyboards(_ value: Any, forKey key: String) {
+        guard clientClass.instancesRespond(to: Self.setKeyboardSelector),
+              let keyboardClass = NSClassFromString("KeyboardBrightnessClient") as? NSObject.Type,
+              keyboardClass.instancesRespond(to: Self.keyboardIDsSelector),
+              let ids = keyboardClass.init().perform(Self.keyboardIDsSelector)?.takeRetainedValue() as? [NSNumber]
+        else { return }
+        let client = makeClient()
+        let imp = client.method(for: Self.setKeyboardSelector)
+        let set = unsafeBitCast(imp, to: SetKeyboardProperty.self)
+        for id in ids {
+            _ = set(client, Self.setKeyboardSelector, value as AnyObject, key as NSString, id.uint64Value)
+        }
     }
 }
