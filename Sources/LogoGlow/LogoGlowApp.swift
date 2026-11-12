@@ -10,14 +10,14 @@ struct LogoGlowApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(model: appDelegate.model)
+            MenuContent(model: appDelegate.model, updates: appDelegate.updates)
         } label: {
             Image(nsImage: MenuBarIcon.image)
         }
         .menuBarExtraStyle(.window)
 
         Settings {
-            SettingsView(model: appDelegate.model)
+            SettingsView(model: appDelegate.model, updates: appDelegate.updates)
         }
         .windowResizability(.contentSize)
     }
@@ -26,6 +26,7 @@ struct LogoGlowApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = LogoModel()
+    let updates = UpdateController()
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)

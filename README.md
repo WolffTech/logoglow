@@ -39,6 +39,13 @@ illuminated Apple logo) running macOS 27 or later. It does nothing on other Macs
 2. Open the disk image and drag Logo Glow to `/Applications`.
 3. Launch Logo Glow from `/Applications`. It appears in the menu bar.
 
+### Updates
+
+Logo Glow checks GitHub Releases for updates with
+[Sparkle](https://sparkle-project.org). Use **Check for Updates…** in the menu
+bar, or choose automatic checks and downloads in **Settings**. Updating in place
+works only after the app has been moved to `/Applications`.
+
 ## Build from source
 
 Install Xcode 27 or later (the build compiles the Icon Composer app icon with
@@ -66,3 +73,12 @@ Maintainers can find the CI checks, release process, and signing setup in
 
 Logo Glow is free software licensed under [GPL-2.0-only](LICENSE). Each
 release includes a matching source archive.
+
+Releases embed the [Sparkle](https://github.com/sparkle-project/Sparkle) update
+framework, a separate MIT-licensed work fetched by Swift Package Manager at the
+exact version in `Package.resolved`. Its license is in
+[`ThirdPartyLicenses/Sparkle.txt`](ThirdPartyLicenses/Sparkle.txt).
+
+If you distribute your own builds, replace `SUFeedURL` and `SUPublicEDKey` in
+`Scripts/Info.plist` with your own update feed and Sparkle signing key.
+Otherwise your builds would try to update from this repository's releases.

@@ -28,5 +28,9 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Nick Wolff</string>
+	<key>SUFeedURL</key>
+	<string>https://github.com/WolffTech/logoglow/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>1Ovu7K7r4DiR6LiygIHq76E2ck9htf0OJNJetYJDnCQ=</string>
 </dict>
 </plist>
