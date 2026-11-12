@@ -63,7 +63,9 @@ struct MenuContent: View {
                 .foregroundStyle(.secondary)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
                 ForEach(LightMode.allCases) { mode in
-                    ModeTile(mode: mode, isSelected: true)
+                    ModeTile(mode: mode, isSelected: model.mode == mode) {
+                        model.setMode(mode)
+                    }
                 }
             }
             .disabled(!model.canAdjustLight)
@@ -147,9 +149,18 @@ private struct GlowPreview: View {
 private struct ModeTile: View {
     let mode: LightMode
     let isSelected: Bool
+    let select: () -> Void
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
+        Button(action: select) {
+            tile
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var tile: some View {
         VStack(spacing: 6) {
             Image(systemName: mode.symbol)
                 .font(.system(size: 11, weight: .bold))
@@ -163,8 +174,7 @@ private struct ModeTile: View {
         .padding(.vertical, 10)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.quinary))
         .opacity(isEnabled ? 1 : 0.5)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 

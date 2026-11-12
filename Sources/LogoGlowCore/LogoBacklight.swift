@@ -48,6 +48,15 @@ public struct LogoBacklight {
         static let minRestriction = "LEPWMLuxToMinNitsRestrictionMapping"
         static let maxRestriction = "LEPWMLuxToMaxNitsRestrictionMapping"
         static let displayNits = "DisplayNitsKey"
+        static let fadeDuration = "LEPWMFactorFadeDuration"
+        static let logicalState = "DisplayLogicalState"
+    }
+
+    private enum LogicalState: Int {
+        case blank = 1
+        case unblank = 2
+
+        var number: NSNumber { NSNumber(value: rawValue) }
     }
 
     private let store: any BrightnessPropertyStore
@@ -88,6 +97,23 @@ public struct LogoBacklight {
     private func resendCurrentDisplayNits() {
         guard let nits = store.value(forKey: Key.displayNits) as? NSNumber, nits.doubleValue > 0 else { return }
         _ = store.setValue(nits, forKey: Key.displayNits)
+    }
+
+    @discardableResult
+    public func fade(_ direction: FadeDirection, over seconds: Double) -> Bool {
+        guard store.setValue(NSNumber(value: seconds), forKey: Key.fadeDuration) else { return false }
+        switch direction {
+        case .rise:
+            return store.setValue(LogicalState.unblank.number, forKey: Key.logicalState)
+        case .dip:
+            let faded = store.setValue(LogicalState.blank.number, forKey: Key.logicalState)
+            store.setValueOnKeyboards(LogicalState.unblank.number, forKey: Key.logicalState)
+            return faded
+        }
+    }
+
+    public func resetFadeDuration() {
+        _ = store.setValue(NSNumber(value: 0.0), forKey: Key.fadeDuration)
     }
 
     /// True when corebrightnessd loaded the tables `FullRange.Action.unlock` writes. The live

@@ -33,12 +33,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        observeDisplaySleep()
         model.resume()
     }
 
     /// Hands the logo back to macOS on quit. The preference stays, so the next launch resumes.
-    func applicationWillTerminate(_ notification: Notification) {
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         model.suspend()
+        Task {
+            await model.waitUntilRestored()
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
+    private func observeDisplaySleep() {
+        let center = NSWorkspace.shared.notificationCenter
+        let model = model
+        for name in [NSWorkspace.screensDidSleepNotification, NSWorkspace.willSleepNotification] {
+            center.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { model.displayDidSleep() }
+            }
+        }
+        center.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { model.displayDidWake() }
+        }
     }
 }
 

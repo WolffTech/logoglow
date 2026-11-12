@@ -12,17 +12,24 @@ import Foundation
 public final class LogoController {
     public let backlight: LogoBacklight
     private let defaults: UserDefaults
+    private let player: EffectPlayer
 
     private enum Key {
         static let isControlling = "isControlling"
         static let isLightOn = "isLightOn"
         static let brightness = "brightness"
         static let systemSettings = "systemSettings"
+        static let effect = "effect"
     }
 
-    public init(backlight: LogoBacklight, defaults: UserDefaults = .standard) {
+    public init(
+        backlight: LogoBacklight,
+        defaults: UserDefaults = .standard,
+        clock: some Clock<Duration> = ContinuousClock()
+    ) {
         self.backlight = backlight
         self.defaults = defaults
+        player = EffectPlayer(backlight: backlight, clock: clock)
         defaults.register(defaults: [Key.isLightOn: true, Key.brightness: 0.5])
     }
 
@@ -41,6 +48,11 @@ public final class LogoController {
     public private(set) var brightness: Double {
         get { defaults.double(forKey: Key.brightness).clamped(to: 0...1) }
         set { defaults.set(newValue.clamped(to: 0...1), forKey: Key.brightness) }
+    }
+
+    public private(set) var effect: LogoEffect? {
+        get { defaults.string(forKey: Key.effect).flatMap(LogoEffect.init(rawValue:)) }
+        set { defaults.set(newValue?.rawValue, forKey: Key.effect) }
     }
 
     /// Squared so the low end, where the eye is most sensitive, gets more of the slider.
@@ -69,7 +81,32 @@ public final class LogoController {
 
     public func setLightOn(_ on: Bool) {
         isLightOn = on
-        if isControlling { backlight.setMode(on ? .on : .off) }
+        guard isControlling else { return }
+        if on {
+            backlight.setMode(.on)
+            playSavedEffect()
+        } else {
+            player.stop()
+            backlight.setMode(.off)
+        }
+    }
+
+    public func setEffect(_ effect: LogoEffect?) {
+        self.effect = effect
+        guard isControlling, isLightOn else { return }
+        if let effect { player.play(effect) } else { player.stop() }
+    }
+
+    public func displayDidSleep() {
+        player.pauseForDisplaySleep()
+    }
+
+    public func displayDidWake() {
+        if isControlling { playSavedEffect() }
+    }
+
+    public func waitUntilRestored() async {
+        await player.waitUntilRestored()
     }
 
     public func setBrightness(_ value: Double) {
@@ -88,12 +125,20 @@ public final class LogoController {
             guard let mapping = backlight.brightnessMapping else { return false }
             savedSystemSettings = SystemSettings(mapping: mapping, mode: backlight.mode)
         }
-        return backlight.setBrightnessMapping(.constant(Self.nits(forBrightness: brightness)))
-            && backlight.setMode(isLightOn ? .on : .off)
+        guard backlight.setBrightnessMapping(.constant(Self.nits(forBrightness: brightness))),
+              backlight.setMode(isLightOn ? .on : .off)
+        else { return false }
+        playSavedEffect()
+        return true
+    }
+
+    private func playSavedEffect() {
+        if isLightOn, let effect { player.play(effect) }
     }
 
     @discardableResult
     private func handBack() -> Bool {
+        player.stop()
         guard let saved = savedSystemSettings else {
             return backlight.setMode(.on)
         }
