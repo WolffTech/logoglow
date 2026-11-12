@@ -6,6 +6,7 @@ import SwiftUI
 
 struct SettingsView: View {
     let model: LogoModel
+    @Bindable var updates: UpdateController
 
     var body: some View {
         Form {
@@ -21,6 +22,25 @@ struct SettingsView: View {
                 }
             }
             Section {
+                Toggle("Check for updates automatically", isOn: $updates.automaticallyChecksForUpdates)
+                Toggle("Download updates automatically", isOn: $updates.automaticallyDownloadsUpdates)
+                    .disabled(!updates.automaticallyChecksForUpdates)
+                LabeledContent("Software Update") {
+                    Button("Check Now") { updates.checkForUpdates() }
+                        .disabled(!updates.canCheckForUpdates)
+                }
+            } header: {
+                Text("Updates")
+            } footer: {
+                Text(updates.isAvailable
+                    ? "Updates are downloaded from GitHub Releases and verified before they are installed."
+                    : "Updates are available when running the installed app.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .disabled(!updates.isAvailable)
+            Section {
                 LabeledContent("License", value: "GPL-2.0-only")
                 LabeledContent("Source Code") {
                     Link("github.com/WolffTech/logoglow", destination: AppInfo.sourceURL)
@@ -31,6 +51,7 @@ struct SettingsView: View {
         .scrollDisabled(true)
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
+        .onAppear { updates.refresh() }
         .task {
             while !Task.isCancelled {
                 model.refresh()

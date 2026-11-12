@@ -30,9 +30,10 @@ jobs:
           NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
           NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
           NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           missing=0
-          for name in MACOS_CERT_P12 MACOS_CERT_PASSWORD NOTARY_KEY_P8 NOTARY_KEY_ID NOTARY_ISSUER_ID; do
+          for name in MACOS_CERT_P12 MACOS_CERT_PASSWORD NOTARY_KEY_P8 NOTARY_KEY_ID NOTARY_ISSUER_ID SPARKLE_ED_PRIVATE_KEY; do
             if [[ -z "${!name}" ]]; then
               echo "::error::missing repository secret: $name"
               missing=1
@@ -84,25 +85,87 @@ jobs:
           export NOTARY_KEY_FILE="$RUNNER_TEMP/logoglow-notary.p8"
           printf '%s\n' "$NOTARY_KEY_P8" > "$NOTARY_KEY_FILE"
           ./Scripts/notarize.sh
+      - name: Collect release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EARLIER_RELEASES: "4"
+        run: |
+          notes="$RUNNER_TEMP/release-notes.md"
+          if ! gh release view "$GITHUB_REF_NAME" --json body --jq .body > "$notes" 2> /dev/null; then
+            gh api "repos/$GH_REPO/releases/generate-notes" \
+              -f tag_name="$GITHUB_REF_NAME" --jq .body > "$notes"
+          fi
+          demote_headings() { sed -E 's/^(#{1,5}) /#\1 /'; }
+          earlier_tags() {
+            {
+              gh release list --exclude-drafts --exclude-pre-releases --limit 100 \
+                --json tagName --jq '.[].tagName'
+              echo "$GITHUB_REF_NAME"
+            } | sort -u -r -V | awk -v current="$GITHUB_REF_NAME" -v limit="$EARLIER_RELEASES" '
+              seen && /^v[0-9]+\.[0-9]+\.[0-9]+$/ && n++ < limit { print }
+              $0 == current { seen = 1 }'
+          }
+          {
+            printf '## Version %s\n\n' "$APP_VERSION"
+            demote_headings < "$notes"
+            earlier_tags | while read -r tag; do
+              printf '\n## Version %s\n\n' "${tag#v}"
+              gh release view "$tag" --json body --jq .body | demote_headings
+            done
+          } > "$RUNNER_TEMP/update-notes.md"
+          cat "$RUNNER_TEMP/update-notes.md"
+      - name: Generate Sparkle appcast
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          SPARKLE_VERSION: 2.10.1
+          SPARKLE_SHA256: 1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27
+        run: |
+          curl --fail --location --silent --show-error \
+            --output "$RUNNER_TEMP/Sparkle.tar.xz" \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          echo "$SPARKLE_SHA256  $RUNNER_TEMP/Sparkle.tar.xz" | shasum -a 256 --check
+          mkdir "$RUNNER_TEMP/sparkle-dist" "$RUNNER_TEMP/appcast-archives"
+          tar -xJf "$RUNNER_TEMP/Sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle-dist"
+          cp "dist/Logo-Glow-$APP_VERSION.dmg" "$RUNNER_TEMP/appcast-archives/"
+          gh api markdown \
+            -F text=@"$RUNNER_TEMP/update-notes.md" \
+            -f mode=gfm \
+            -f context="$GITHUB_REPOSITORY" \
+            > "$RUNNER_TEMP/appcast-archives/Logo-Glow-$APP_VERSION.html"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | \
+            "$RUNNER_TEMP/sparkle-dist/bin/generate_appcast" \
+              --ed-key-file - \
+              --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
+              --link "https://github.com/${GITHUB_REPOSITORY}" \
+              --embed-release-notes \
+              -o dist/appcast.xml \
+              "$RUNNER_TEMP/appcast-archives"
+          grep -q 'sparkle:edSignature=' dist/appcast.xml
+          grep -q '<description>' dist/appcast.xml
+          cat dist/appcast.xml
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           dmg="dist/Logo-Glow-$APP_VERSION.dmg"
+          appcast="dist/appcast.xml"
           source_zip="dist/Logo-Glow-$APP_VERSION-source.zip"
           git archive --format=zip --prefix="Logo-Glow-$APP_VERSION/" \
             --output="$source_zip" "$GITHUB_SHA"
           checksums="dist/Logo-Glow-$APP_VERSION-SHA256SUMS.txt"
           (
             cd dist
-            shasum -a 256 "${dmg#dist/}" "${source_zip#dist/}" > "${checksums#dist/}"
+            shasum -a 256 "${dmg#dist/}" "${source_zip#dist/}" "${appcast#dist/}" > "${checksums#dist/}"
           )
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "$dmg" "$source_zip" "$checksums" --clobber
+            gh release upload "$GITHUB_REF_NAME" "$dmg" "$appcast" "$source_zip" "$checksums" --clobber
           else
             gh release create "$GITHUB_REF_NAME" --title "Logo Glow $APP_VERSION" \
-              --generate-notes --verify-tag "$dmg" "$source_zip" "$checksums"
+              --notes-file "$RUNNER_TEMP/release-notes.md" --verify-tag \
+              "$dmg" "$appcast" "$source_zip" "$checksums"
           fi
       - name: Remove temporary credentials
         if: always()

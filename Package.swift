@@ -8,11 +8,17 @@ let package = Package(
     name: "LogoGlow",
     // The illuminated logo only exists on MacBook Pro models that ship with macOS 27.
     platforms: [.macOS("27.0")],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
+    ],
     targets: [
         // Menu bar app. Scripts/make-app.sh wraps this executable in "Logo Glow.app".
         .executableTarget(
             name: "LogoGlow",
-            dependencies: ["LogoGlowCore"],
+            dependencies: [
+                "LogoGlowCore",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
             path: "Sources/LogoGlow"
         ),
         // CoreBrightness access and control handoff, kept free of UI so it can be tested.

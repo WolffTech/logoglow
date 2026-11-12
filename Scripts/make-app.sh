@@ -58,6 +58,7 @@ mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$MAIN_BIN" "$APP_DIR/Contents/MacOS/$EXECUTABLE"
 cp "$SCRIPT_DIR/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp "$REPO_ROOT/LICENSE" "$APP_DIR/Contents/Resources/LICENSE"
+cp -R "$REPO_ROOT/ThirdPartyLicenses" "$APP_DIR/Contents/Resources/ThirdPartyLicenses"
 printf 'APPL????' > "$APP_DIR/Contents/PkgInfo"
 
 # Compile the Icon Composer document straight into the bundle: Assets.car for
@@ -89,6 +90,26 @@ if [[ -n "$BUILD_NUMBER" ]]; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP_PLIST"
 fi
 
+echo "==> Embedding Sparkle.framework"
+ARTIFACTS_DIR="$REPO_ROOT/.build/artifacts"
+SPARKLE_SOURCE="$(find "$ARTIFACTS_DIR" -type d -name Sparkle.framework -path "*macos*" -print -quit)"
+if [[ -z "$SPARKLE_SOURCE" ]]; then
+    echo "error: Sparkle.framework not found under $ARTIFACTS_DIR" >&2
+    exit 1
+fi
+FRAMEWORKS_DIR="$APP_DIR/Contents/Frameworks"
+SPARKLE_FRAMEWORK="$FRAMEWORKS_DIR/Sparkle.framework"
+mkdir -p "$FRAMEWORKS_DIR"
+cp -R "$SPARKLE_SOURCE" "$SPARKLE_FRAMEWORK"
+
+MAIN_EXECUTABLE="$APP_DIR/Contents/MacOS/$EXECUTABLE"
+while read -r rpath; do
+    if [[ "$rpath" == *.build* || "$rpath" == *artifacts* ]]; then
+        install_name_tool -delete_rpath "$rpath" "$MAIN_EXECUTABLE"
+    fi
+done < <(otool -l "$MAIN_EXECUTABLE" | awk '/LC_RPATH/ { getline; getline; print $2 }')
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$MAIN_EXECUTABLE"
+
 if [[ "$CODESIGN_IDENTITY" == "-" ]]; then
     echo "==> Codesigning (ad hoc)"
     SIGN_FLAGS=(--timestamp=none)
@@ -96,6 +117,13 @@ else
     echo "==> Codesigning ($CODESIGN_IDENTITY)"
     SIGN_FLAGS=(--options runtime --timestamp)
 fi
+for xpc in "$SPARKLE_FRAMEWORK/Versions/B/XPCServices/"*.xpc; do
+    codesign --force --sign "$CODESIGN_IDENTITY" "${SIGN_FLAGS[@]}" \
+        --preserve-metadata=entitlements "$xpc"
+done
+codesign --force --sign "$CODESIGN_IDENTITY" "${SIGN_FLAGS[@]}" "$SPARKLE_FRAMEWORK/Versions/B/Autoupdate"
+codesign --force --sign "$CODESIGN_IDENTITY" "${SIGN_FLAGS[@]}" "$SPARKLE_FRAMEWORK/Versions/B/Updater.app"
+codesign --force --sign "$CODESIGN_IDENTITY" "${SIGN_FLAGS[@]}" "$SPARKLE_FRAMEWORK"
 codesign --force --sign "$CODESIGN_IDENTITY" "${SIGN_FLAGS[@]}" "$APP_DIR"
 
 echo "==> Done: $APP_DIR"

@@ -5,6 +5,7 @@ import SwiftUI
 
 struct MenuContent: View {
     let model: LogoModel
+    let updates: UpdateController
     @State private var draftBrightness = 0.5
     @Environment(\.openSettings) private var openSettings
 
@@ -99,6 +100,12 @@ struct MenuContent: View {
                 openSettings()
             }
             .keyboardShortcut(",")
+            if updates.isAvailable {
+                MenuRow("Check for Updates…") {
+                    updates.checkForUpdates()
+                }
+                .disabled(!updates.canCheckForUpdates)
+            }
             MenuRow("Quit Logo Glow", shortcut: "⌘Q") {
                 NSApp.terminate(nil)
             }
