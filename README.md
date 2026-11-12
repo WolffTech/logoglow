@@ -16,9 +16,6 @@ on the lid. macOS sets its brightness automatically from the display brightness
 and ambient light, and the only built-in control is a Terminal command that turns
 it off. Logo Glow is a menu bar app that lets you decide how the logo glows.
 
-> [!NOTE]
-> Logo Glow is in early development and has no release yet.
-
 ## What it does
 
 - Lives in the menu bar
@@ -31,17 +28,25 @@ it off. Logo Glow is a menu bar app that lets you decide how the logo glows.
 
 Changes apply within about a second, without touching your screen brightness.
 
-## Requirements
+## Installation
 
 Logo Glow requires a MacBook Pro with PROLED XDR display (the models with an
 illuminated Apple logo) running macOS 27 or later. It does nothing on other Macs.
 
+### Manual download
+
+1. Download the signed `.dmg` from [GitHub Releases](https://github.com/WolffTech/logoglow/releases), or [build from source](#build-from-source).
+2. Open the disk image and drag Logo Glow to `/Applications`.
+3. Launch Logo Glow from `/Applications`. It appears in the menu bar.
+
 ## Build from source
 
 Install Xcode 27 or later (the build compiles the Icon Composer app icon with
-`actool`), clone the repository, then run:
+`actool`), then run:
 
 ```sh
+git clone https://github.com/WolffTech/logoglow.git
+cd logoglow
 ./Scripts/make-app.sh
 open "dist/Logo Glow.app"
 ```
@@ -50,9 +55,14 @@ For development:
 
 ```sh
 swift build
+swift test
 swift run LogoGlow
 ```
 
+Maintainers can find the CI checks, release process, and signing setup in
+[RELEASING.md](RELEASING.md).
+
 ## License
 
-Logo Glow is free software licensed under [GPL-2.0-only](LICENSE).
+Logo Glow is free software licensed under [GPL-2.0-only](LICENSE). Each
+release includes a matching source archive.
