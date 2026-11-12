@@ -7,18 +7,45 @@ import Observation
 
 enum LightMode: CaseIterable, Identifiable {
     case steady
+    case breathe
+    case pulse
+    case heartbeat
+
+    init(effect: LogoEffect?) {
+        switch effect {
+        case nil: self = .steady
+        case .breathe: self = .breathe
+        case .pulse: self = .pulse
+        case .heartbeat: self = .heartbeat
+        }
+    }
+
+    var effect: LogoEffect? {
+        switch self {
+        case .steady: nil
+        case .breathe: .breathe
+        case .pulse: .pulse
+        case .heartbeat: .heartbeat
+        }
+    }
 
     var id: Self { self }
 
     var title: String {
         switch self {
         case .steady: "Steady"
+        case .breathe: "Breathe"
+        case .pulse: "Pulse"
+        case .heartbeat: "Heartbeat"
         }
     }
 
     var symbol: String {
         switch self {
         case .steady: "circle.fill"
+        case .breathe: "wind"
+        case .pulse: "dot.radiowaves.left.and.right"
+        case .heartbeat: "heart.fill"
         }
     }
 }
@@ -48,6 +75,7 @@ final class LogoModel {
     private(set) var isControlling = false
     private(set) var isLightOn = true
     private(set) var brightness = 0.5
+    private(set) var mode = LightMode.steady
     private(set) var state: LogoState?
     private(set) var isFullRangeUnlocked = false
     private(set) var isChangingRange = false
@@ -91,11 +119,24 @@ final class LogoModel {
         controller?.suspend()
     }
 
+    func waitUntilRestored() async {
+        await controller?.waitUntilRestored()
+    }
+
+    func displayDidSleep() {
+        controller?.displayDidSleep()
+    }
+
+    func displayDidWake() {
+        controller?.displayDidWake()
+    }
+
     func refresh() {
         guard let controller else { return }
         isControlling = controller.isControlling
         isLightOn = controller.isLightOn
         brightness = controller.brightness
+        mode = LightMode(effect: controller.effect)
         state = controller.backlight.state
         isFullRangeUnlocked = controller.backlight.isFullRangeUnlocked
     }
@@ -113,6 +154,11 @@ final class LogoModel {
     func setLightOn(_ on: Bool) {
         controller?.setLightOn(on)
         refreshNowAndAfterRamp()
+    }
+
+    func setMode(_ mode: LightMode) {
+        controller?.setEffect(mode.effect)
+        refresh()
     }
 
     func setBrightness(_ value: Double) {
